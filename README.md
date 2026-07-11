@@ -1,13 +1,45 @@
-# Agentic RAG Assistant
+# 🤖 Agentic Document Intelligence Platform
 
-A small agent that answers questions over your own documents (RAG) and can
-call tools (calculator, document search) instead of just chatting. Built as
-an MVP for the "Agentic Engineering" focus area — meant to be extended, not
-a finished product.
+### AI-Powered Retrieval-Augmented Generation (RAG) Assistant with Tool Calling
 
-## Architecture
+An intelligent document assistant that enables users to upload their own documents and interact with them through natural language conversations. The platform combines Retrieval-Augmented Generation (RAG), semantic search, and agentic tool invocation to provide accurate, context-aware responses over private documents.
 
-```
+Unlike traditional chatbots, the system can intelligently decide whether to retrieve information from documents or invoke external tools to answer a user's query.
+
+---
+
+# 📌 Overview
+
+The platform is designed around the principles of **Agentic Engineering**, where an AI agent can:
+
+* Understand user intent
+* Retrieve information from uploaded documents
+* Invoke tools when necessary
+* Generate context-aware responses
+* Operate in both offline and LLM-assisted modes
+
+The application supports conversational question answering over private knowledge bases while remaining lightweight and easy to deploy.
+
+---
+
+# ✨ Features
+
+* 📄 Document upload and ingestion (`.txt` and `.md`)
+* 🔍 Semantic document search
+* 🤖 Retrieval-Augmented Generation (RAG)
+* 🧠 Agentic tool invocation
+* 🧮 Secure calculator tool
+* 💬 Conversational chat interface
+* 💾 Persistent local vector database
+* 🌐 Offline-first architecture
+* 🔑 Optional Anthropic Claude integration
+* 🏗 Modular and extensible architecture
+
+---
+
+# 🏗 System Architecture
+
+```text
 ┌─────────────┐        HTTP (fetch)        ┌──────────────────┐
 │   React UI   │ ───────────────────────▶  │   FastAPI backend │
 │ (Vite, chat  │ ◀───────────────────────  │                    │
@@ -17,92 +49,168 @@ a finished product.
                                      ┌─────────────────┼─────────────────┐
                                      ▼                                   ▼
                             ┌─────────────────┐              ┌────────────────────┐
-                            │   Agent router   │              │     Tools           │
-                            │ (agent.py)        │─────calls──▶│ calculator_tool      │
-                            │ heuristic OR       │              │ search_docs_tool     │
-                            │ Claude tool-use     │              └─────────┬────────────┘
-                            └────────────────────┘                        │
-                                                                            ▼
-                                                                ┌────────────────────┐
-                                                                │  ChromaDB (local)    │
-                                                                │  offline hashing      │
-                                                                │  embeddings           │
-                                                                └────────────────────┘
+                            │   Agent Router   │────────────▶│      Tools          │
+                            │ (Heuristic/LLM)  │             │ Calculator Tool     │
+                            └─────────────────┘              │ Document Search     │
+                                                              └─────────┬──────────┘
+                                                                        │
+                                                                        ▼
+                                                          ┌────────────────────┐
+                                                          │ ChromaDB Vector DB │
+                                                          │ Persistent Storage │
+                                                          └────────────────────┘
 ```
 
-**Request flow:**
-1. User uploads a `.txt`/`.md` file → backend chunks it → embeds each chunk
-   (offline hashing-trick embedding, no external model download) → stores
-   in a local persistent ChromaDB collection.
-2. User sends a chat message → the agent decides which tool to use:
-   - **No `ANTHROPIC_API_KEY` set:** a lightweight heuristic router (regex
-     for arithmetic → calculator; otherwise → document search) — runs
-     fully offline, zero cost, good for demos.
-   - **`ANTHROPIC_API_KEY` set:** real LLM tool-calling — Claude decides
-     which tool(s) to invoke, the backend executes them, results are fed
-     back for a final synthesized answer.
-3. Response (answer + which tools were called) is returned to the UI,
-   which shows tool badges next to each agent reply.
+---
 
-## Why it's built this way (design notes for interviews)
+# 🔄 Workflow
 
-- **Offline-first embeddings:** instead of depending on downloading a
-  ~90MB embedding model at first run (fragile on restricted networks),
-  chunk embeddings use a deterministic hashing-trick vectorizer. This is
-  a known-weaker retrieval quality trade-off, documented here on purpose —
-  the natural next step is swapping in `sentence-transformers/all-MiniLM-L6-v2`
-  or an API embedding model, which is a one-line change in `vectorstore.py`
-  because the interface matches Chroma's `EmbeddingFunction` protocol.
-- **Two agent modes, not one:** the heuristic router means the whole app
-  is demoable and testable with zero API keys/cost. The LLM mode is real
-  Anthropic function-calling, not a mock — swap in a key and it upgrades
-  automatically.
-- **Guardrailed calculator tool:** arithmetic is evaluated via a restricted
-  AST walker (`tools.py`), not Python `eval()`, so it can't execute
-  arbitrary code.
+## Document Ingestion
 
-## Project status
-
-🚧 **In progress.** Current state: ingestion, retrieval, calculator tool,
-heuristic + LLM agent modes, and chat UI all work end-to-end locally.
-
-Roadmap:
-- [ ] Swap hashing embeddings for a real embedding model
-- [ ] Add a third tool (e.g. web search or a public API call)
-- [ ] Persist chat history per session
-- [ ] Add PDF ingestion support
-- [ ] Dockerize + CI pipeline
-
-## Running it
-
-### Backend
-```bash
-cd backend
-python3 -m venv venv
-source venv/bin/activate      # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env          # optional: add ANTHROPIC_API_KEY to enable LLM mode
-uvicorn app.main:app --reload --port 8000
+```text
+User Uploads Document
+          ↓
+Document Chunking
+          ↓
+Embedding Generation
+          ↓
+ChromaDB Storage
 ```
-Backend runs at `http://127.0.0.1:8000`. Check `http://127.0.0.1:8000/health`.
 
-### Frontend
-```bash
-cd frontend
-npm install
-npm run dev
+## Query Processing
+
+```text
+User Query
+      ↓
+Agent Router
+      ↓
+Tool Selection
+      ↓
+Context Retrieval
+      ↓
+Response Generation
+      ↓
+Chat Interface
 ```
-Frontend runs at `http://127.0.0.1:5173` and talks to the backend at
-`http://127.0.0.1:8000` by default (override with a `VITE_API_BASE` env var
-in a `.env` file in `frontend/` if needed).
 
-### Try it
-1. Open the frontend in your browser.
-2. Upload a `.txt` or `.md` file using the upload button.
-3. Ask a question about its content — the agent will call the search tool.
-4. Ask a math question like `23*17+4` — the agent will call the calculator tool.
-5. (Optional) Add your `ANTHROPIC_API_KEY` in `backend/.env` and restart the
-   backend to switch from heuristic routing to real LLM tool-calling.
+---
 
-## Tech stack
-FastAPI · ChromaDB · React (Vite) · Anthropic Claude API (optional, for LLM tool-calling)
+# 🧠 Agent Modes
+
+### Offline Mode
+
+* No API key required.
+* Uses a lightweight heuristic router.
+* Arithmetic queries invoke the calculator tool.
+* Information queries invoke the document search tool.
+
+### LLM Mode
+
+* Enabled through `ANTHROPIC_API_KEY`.
+* Uses real tool-calling capabilities.
+* The LLM decides which tools to invoke and synthesizes the final response.
+
+---
+
+# 💡 Design Decisions
+
+### Offline-first Embeddings
+
+The platform uses deterministic hashing-based embeddings instead of downloading large embedding models, enabling:
+
+* Low-cost deployments
+* Faster setup
+* Operation on restricted networks
+
+The embedding implementation can easily be replaced with:
+
+* sentence-transformers/all-MiniLM-L6-v2
+* OpenAI Embeddings
+* Gemini Embeddings
+
+---
+
+### Secure Tool Invocation
+
+Arithmetic expressions are evaluated through a restricted AST parser instead of Python's `eval()`, preventing arbitrary code execution.
+
+---
+
+# 🛠 Tech Stack
+
+| Component       | Technology                     |
+| --------------- | ------------------------------ |
+| Backend         | FastAPI                        |
+| Frontend        | React + Vite                   |
+| Vector Database | ChromaDB                       |
+| Language        | Python                         |
+| AI              | Retrieval-Augmented Generation |
+| LLM             | Anthropic Claude API           |
+| Storage         | Persistent Local Storage       |
+
+---
+
+# 📂 Project Structure
+
+```text
+agentic-document-intelligence-platform/
+│
+├── frontend/
+│   ├── src/
+│   └── public/
+│
+├── backend/
+│   ├── app/
+│   │   ├── main.py
+│   │   ├── agent.py
+│   │   ├── tools.py
+│   │   ├── vectorstore.py
+│   │   └── config.py
+│
+├── requirements.txt
+└── README.md
+```
+
+---
+
+# 🚀 Applications
+
+* Enterprise Knowledge Assistants
+* Internal Documentation Search
+* Research Assistants
+* Educational Chatbots
+* Customer Support Systems
+* Personal Knowledge Management
+
+---
+
+# 🔮 Future Enhancements
+
+* PDF and DOCX support
+* Multi-agent architecture
+* Authentication and user management
+* Docker deployment
+* CI/CD pipeline
+* Citation generation
+* Web search integration
+* Session-based chat history
+
+---
+
+# 📚 Learning Outcomes
+
+* Retrieval-Augmented Generation (RAG)
+* Agentic AI Systems
+* Vector Databases
+* FastAPI Backend Development
+* React Frontend Development
+* Tool Calling Architectures
+* Full-Stack AI Application Development
+
+---
+
+# 👩‍💻 Author
+
+**Saloni**
+B.Tech CSE (AI & ML)
+VIT Bhopal University
